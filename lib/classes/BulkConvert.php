@@ -169,12 +169,17 @@ class BulkConvert
                             $addThis = true;
                         }
 
-                        if ($addThis) {
+                        if ( $addThis ) {
 
-                            $path = substr($relDir . "/", 2) . $filename;   // (we cut the leading "./" off with substr)
+                        $path = substr( $relDir . '/', 2 ) . $filename;   // (we cut the leading "./" off with substr)
 
-                            // Check if the string can be encoded to json (if not: change it to a string that can)
-                            if (json_encode($path, JSON_UNESCAPED_UNICODE) === false) {
+                        // Check if the string can be encoded to json (if not: change it to a string that can)
+                        $filesize = @filesize( $dir . '/' . $filename );
+                        $filesize = round( $filesize / 1024, 2 );
+                        // only int
+                        $filesize = (int) $filesize;
+                        if ( $filesize > 99 ) {
+                            if ( json_encode( $path, JSON_UNESCAPED_UNICODE ) === false ) {
                                 /*
                                 json_encode failed. This means that the string was not UTF-8.
                                 Lets see if we can convert it to UTF-8.
@@ -214,59 +219,57 @@ class BulkConvert
                                 }*/
 
                                 // Try mb_detect_encoding
-                                if (!$encodedToUTF8) {
-                                    if (function_exists('mb_convert_encoding')) {
-                                        $encoding = mb_detect_encoding($path, mb_detect_order(), true);
-                                    		if ($encoding) {
-                                    			$path = mb_convert_encoding($path, 'UTF-8', $encoding);
-                                          $encodedToUTF8 = true;
-                                    		}
+                                if ( ! $encodedToUTF8 ) {
+                                    if ( function_exists( 'mb_convert_encoding' ) ) {
+                                        $encoding = mb_detect_encoding( $path, mb_detect_order(), true );
+                                        if ( $encoding ) {
+                                            $path          = mb_convert_encoding( $path, 'UTF-8', $encoding );
+                                            $encodedToUTF8 = true;
+                                        }
                                     }
                                 }
 
-                                if (!$encodedToUTF8) {
+                                if ( ! $encodedToUTF8 ) {
                                     /*
                                     We haven't yet succeeded in encoding to UTF-8.
                                     What should we do?
                                     1. Skip the file? (no, the user will not know about the problem then)
                                     2. Add it anyway? (no, if this string causes problems to json_encode, then we will have
-                                          the same problem when encoding the entire list - result: an empty list)
+                                            the same problem when encoding the entire list - result: an empty list)
                                     3. Try wp_json_encode? (no, it will fall back on "wp_check_invalid_utf8", which has a number of
-                                          things we do not want)
+                                            things we do not want)
                                     4. Encode it to UTF-8 assuming that the string is encoded in the most common encoding (Windows-1252) ?
-                                          (yes, if we are lucky with the guess, it will work. If it is in another encoding, the conversion
-                                          will not be correct, and the user will then know about the problem. And either way, we will
-                                          have UTF-8 string, which will not break encoding of the list)
+                                            (yes, if we are lucky with the guess, it will work. If it is in another encoding, the conversion
+                                            will not be correct, and the user will then know about the problem. And either way, we will
+                                            have UTF-8 string, which will not break encoding of the list)
                                     */
 
                                     // https://stackoverflow.com/questions/6606713/json-encode-non-utf-8-strings
-                                    if (function_exists('mb_convert_encoding')) {
-                                        $path = mb_convert_encoding($path, "UTF-8", "Windows-1252");
-                                    } elseif (function_exists('iconv')) {
-                                        $path = iconv("CP1252", "UTF-8", $path);
-                                    } elseif (function_exists('utf8_encode')) {
+                                    if ( function_exists( 'mb_convert_encoding' ) ) {
+                                        $path = mb_convert_encoding( $path, 'UTF-8', 'Windows-1252' );
+                                    } elseif ( function_exists( 'iconv' ) ) {
+                                        $path = iconv( 'CP1252', 'UTF-8', $path );
+                                    } elseif ( function_exists( 'utf8_encode' ) ) {
                                         // utf8_encode converts from ISO-8859-1 to UTF-8
-                                        $path = utf8_encode($path);
+                                        $path = utf8_encode( $path );
                                     } else {
                                         $path = '[cannot encode this filename to UTF-8]';
                                     }
-
                                 }
-
                             }
-                            if ($listOptions['flattenList']) {
-                              $results[] = $path;
+                            if ( $listOptions['flattenList'] ) {
+                                $results[] = $path;
                             } else {
-                              $results[] = [
-                                'name' => basename($path),
-                                'isConverted' => $webpExists
-                              ];
-                              if ($depth > $listOptions['max-depth']) {
-                                  return $results;  // one item is enough to determine that it is not empty
-                              }
-
+                                $results[] = array(
+                                    'name'        => basename( $path ),
+                                    'isConverted' => $webpExists,
+                                );
+                                if ( $depth > $listOptions['max-depth'] ) {
+                                    return $results;  // one item is enough to determine that it is not empty
+                                }
                             }
                         }
+                    }
                     }
                 }
             }
